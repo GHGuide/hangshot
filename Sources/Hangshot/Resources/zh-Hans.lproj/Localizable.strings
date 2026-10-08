@@ -1,0 +1,40 @@
+/* Chinese (Simplified). */
+
+/* AppDelegate */
+"Let Hangshot handle your screenshots?" = "让 Hangshot 接管你的截图？";
+"Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Hangshot quits." = "你截图的那一瞬间，图片就会挂到晾衣绳上——没有浮动缩略图，也不会堆到桌面上。拖进文件夹即保留，点叉即丢弃。随时可以从菜单栏关掉，退出 Hangshot 后你的设置会自动还原。";
+"Turn on" = "开启";
+"Not now" = "以后再说";
+"Hide line" = "隐藏晾衣绳";
+"Show line" = "显示晾衣绳";
+"Take everything down" = "全部取下";
+"Handle screenshots" = "接管截图";
+"Screenshots hang instantly and skip the Desktop" = "截图即刻挂上，不再经过桌面";
+"Open screenshots folder" = "打开截图文件夹";
+"Sounds" = "声音";
+"Open at login" = "登录时打开";
+"Quit Hangshot" = "退出 Hangshot";
+"Could not change the login setting" = "无法更改登录项设置";
+"Move Hangshot to the Applications folder and try again." = "请先把 Hangshot 移到「应用程序」文件夹，再试一次。";
+
+/* GrabArea */
+"Copy" = "复制";
+"Open" = "打开";
+"Markup" = "标记";
+"Show in Finder" = "在访达中显示";
+"Save to Desktop" = "存储到桌面";
+"Discard" = "丢弃";
+"Take down" = "取下";
+"Move to Trash" = "移到废纸篓";
+
+/* LineView */
+"Take a screenshot and it will hang here" = "截个图，它就会挂在这里";
+
+/* PeggedView */
+"Copied" = "已复制";
+"Show over full screen apps" = "在全屏 App 上显示";
+"Clear all" = "全部清除";
+"Hang images you copy too?" = "也挂上你复制的图片吗？";
+"Images you copy, like a screenshot taken with Control held or Copy Image in a browser, will hang on the line as well. Hangshot only keeps images, never text, and skips anything a password manager marks as private. You can change this from the menu bar." = "你复制的图片，例如按住 Control 截的图，或在浏览器中“拷贝图像”，也会挂到绳上。Hangshot 只保留图片，从不保留文字，并会跳过密码管理器标记为私密的内容。你可以在菜单栏中更改此设置。";
+"Hang copied images" = "挂上复制的图片";
+"Images you copy hang on the line too" = "你复制的图片也会挂到绳上";
