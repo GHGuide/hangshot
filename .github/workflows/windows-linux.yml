@@ -1,0 +1,72 @@
+# Tests and builds the Windows and Linux app (windows-linux/hangshot.py) on each push.
+# A tag like v1.1.0 also publishes both builds as a GitHub release.
+name: Windows and Linux
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: Hangshot-windows-x64.zip
+          # The oldest supported Ubuntu, so the build runs on as many distributions as possible.
+          - os: ubuntu-22.04
+            asset: Hangshot-linux-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: windows-linux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Qt's system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-keysyms1 libxcb-shape0 libdbus-1-3 libfontconfig1
+      - run: pip install -r requirements.txt pyinstaller pillow
+      - name: Self-test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python hangshot.py --self-test
+      - name: Build
+        run: |
+          SEP=$([ "$RUNNER_OS" = Windows ] && echo ';' || echo ':')
+          pyinstaller --noconfirm --onefile --windowed --name Hangshot --icon icon.png --add-data "icon.png${SEP}." hangshot.py
+      - name: Self-test the build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: timeout 120 ./dist/Hangshot --self-test
+      - name: Package
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a "${{ matrix.asset }}" ./dist/Hangshot.exe
+          else
+            tar czf "${{ matrix.asset }}" -C dist Hangshot
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: windows-linux/${{ matrix.asset }}
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "Hangshot $GITHUB_REF_NAME" --notes-file ../.github/release-notes.md 2>/dev/null || true
+          gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber

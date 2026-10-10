@@ -22,9 +22,11 @@ down. Move away and it tucks itself back up.
 1. macOS saves the file. Hangshot notices it within a fraction of a second.
 2. The screenshot flies from where you took it to the line, which drops
    down for 2.5 seconds so you see it land, then tucks away.
-3. It stays on the line until you take it down. The line holds 3 to 12
-   screenshots depending on screen width. When it is full, the oldest one
-   falls off the end. Its file is not deleted.
+3. It stays on the line until you take it down. The line adapts to what it
+   carries: the rope sags deeper as it fills, and the cards draw closer and
+   shrink (down to 60%) so more fit. It holds 9 to 21 screenshots depending
+   on screen width. When it is full, the oldest one falls off the end. Its
+   file is not deleted.
 
 ## What you can do with a screenshot on the line
 
@@ -37,6 +39,7 @@ down. Move away and it tucks itself back up.
 | Drag into a folder or the Desktop | Moves the file there and takes it off the line. |
 | Drag to the Trash, or click the ✕ in its corner | Discards it. |
 | Right click | Copy, Open, Markup, Show in Finder. Plus Save to Desktop and Discard for screenshots in Hangshot's folder, or Take down and Move to Trash for files elsewhere. |
+| Click the circle in a card's top right corner | Picks it. Pick several, then drag any picked card to drag them all at once, as one pile. |
 | Click **Clear all** at the right end of the line | Discards every screenshot at once. |
 
 **Discarding** depends on where the file lives. A screenshot in Hangshot's
@@ -112,9 +115,42 @@ screenshot folder, and the clipboard if you turn that on. Everything
 stays on your Mac. macOS asks once for access to your Desktop folder,
 which is where screenshots land by default.
 
-## Install
+## Windows and Linux
 
-Hangshot is built from source for now.
+Hangshot also runs on Windows 10/11 and Linux, as a separate app built on
+Qt: [`windows-linux/hangshot.py`](windows-linux/hangshot.py). Download it
+from the [latest release](../../releases/latest), or run it from source:
+
+```sh
+pip install PySide6
+python windows-linux/hangshot.py
+```
+
+It works the same way: the line at the top of the screen, click to copy,
+double click to open, drag out (one screenshot or a picked group), the
+selection circle, Clear all, the adaptive line, and a right click menu
+with Copy, Open, Show in folder, Take down and Move to Trash. Its menu
+lives in the system tray (click the icon to show or hide the line), with
+*Choose screenshots folder…* and *Start at login*.
+
+It watches `Pictures/Screenshots`, where Windows (Win+PrtScn, Snipping
+Tool) and GNOME and KDE save screenshots, plus its OneDrive copy on
+Windows and, on Linux, files named like screenshots in `Pictures`.
+
+What is different from the Mac app:
+
+- No *Handle screenshots* mode, no Markup and no keyboard shortcut. The ✕
+  and Clear all only take screenshots off the line; their files stay put.
+  *Move to Trash* in the right click menu deletes one.
+- On Wayland, apps cannot read the pointer or place their windows, so
+  Hangshot runs through XWayland when it can. Where it cannot, use the
+  tray icon to show the line.
+- The release builds are not code signed, so Windows SmartScreen asks
+  once before running it (More info → Run anyway).
+
+## Install on a Mac
+
+Hangshot for the Mac is built from source for now.
 
 ```sh
 git clone https://github.com/GHGuide/hangshot.git
@@ -132,7 +168,10 @@ after each rebuild.
 
 ## How it is built
 
-Swift, AppKit and SwiftUI, no dependencies. About 2,300 lines.
+The Mac app is Swift, AppKit and SwiftUI, with no dependencies. The
+Windows and Linux app is one Python file on Qt (PySide6), with a
+`--self-test` that GitHub runs on Windows and Linux on every push before
+building the release downloads.
 
 | File | Role |
 |:--|:--|
@@ -146,6 +185,7 @@ Swift, AppKit and SwiftUI, no dependencies. About 2,300 lines.
 | `CaptureFlight.swift` | The flight from where you took a screenshot to the line |
 | `LinePanel.swift`, `FullScreen.swift` | The floating window and full screen detection |
 | `Markup.swift`, `HotKey.swift` | Markup and the <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> shortcut |
+| `windows-linux/hangshot.py` | The whole Windows and Linux app |
 
 Text in the app is translated into English, Spanish and Simplified
 Chinese (`Sources/Hangshot/Resources`). `swift scripts/check-strings.swift`
@@ -164,10 +204,11 @@ the line is tucked away; hanging copied images) and
 [rickardstureborg](https://github.com/rickardstureborg) (the line comes
 down from the top edge only).
 
-New in Hangshot: the Clear all button, the line over full screen apps, an
-empty line that stays up, screen recordings sent back out of the
-screenshots folder, and *Save to* switched to File while handling
-screenshots.
+New in Hangshot: the Windows and Linux app, picking several screenshots
+to drag out together, a line that adapts to how many it holds, the Clear
+all button, the line over full screen apps, an empty line that stays up,
+screen recordings sent back out of the screenshots folder, and *Save to*
+switched to File while handling screenshots.
 
 ## License
 
