@@ -28,6 +28,8 @@ final class Line: ObservableObject {
     @Published private(set) var gust = 0
     @Published var copiedID: UUID?
     @Published var draggingID: UUID?
+    /// Photos picked with their corner circle, to drag out together.
+    @Published var selected = Set<UUID>()
     @Published var pressedID: UUID?
     /// Whether the line has slid down into view.
     @Published var revealed = false
@@ -86,6 +88,7 @@ final class Line: ObservableObject {
         onFall?(items[i])
         items[i].falling = true
         hitRects[id] = nil
+        selected.remove(id)
         save()
         if !quietly { play("Pop", volume: 0.25) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
@@ -161,6 +164,18 @@ final class Line: ObservableObject {
     }
 
     /// The corner cross and "Take down" both end up here.
+    func toggleSelected(_ id: UUID) {
+        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+
+    /// What a drag starting on this photo carries: the whole selection when
+    /// the photo is part of it, otherwise just the photo.
+    func dragGroup(for id: UUID) -> [Pegged] {
+        let live = items.filter { !$0.falling }
+        guard selected.contains(id), selected.count > 1 else { return live.filter { $0.id == id } }
+        return live.filter { selected.contains($0.id) }
+    }
+
     func discard(_ id: UUID) {
         if isInInbox(id) { trash(id) } else { drop(id) }
     }

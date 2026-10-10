@@ -29,6 +29,10 @@ struct GrabArea: NSViewRepresentable {
         let line = line
         view.url = item.url
         view.dragImage = item.thumb
+        view.dragGroup = { line.dragGroup(for: id).map { ($0.url, $0.thumb) } }
+        view.onToggleSelect = { line.toggleSelected(id) }
+        // Delivered somewhere: the selection has done its job.
+        view.onDelivered = { line.selected.removeAll() }
         view.onClick = { line.copy(id) }
         view.onDoubleClick = { line.open(id) }
         view.onDragStart = { line.draggingID = id }
@@ -37,7 +41,11 @@ struct GrabArea: NSViewRepresentable {
             // Moved into a folder: it is saved where you wanted it.
             line.prune()
         }
-        view.onTrash = { line.trash(id) }
+        view.onTrash = {
+            // Dropped on the Trash: everything that was dragged goes.
+            let ids = line.dragGroup(for: id).map(\.id)
+            ids.forEach { line.trash($0) }
+        }
         view.onDiscard = { line.discard(id) }
         view.onLongPress = { line.markup(id) }
         view.onPressChange = { pressed in line.pressedID = pressed ? id : nil }
@@ -73,6 +81,10 @@ final class GrabView: NSView, NSDraggingSource {
     var onDragStart: () -> Void = {}
     var onDragEnd: () -> Void = {}
     var onTrash: () -> Void = {}
+    var onToggleSelect: () -> Void = {}
+    var onDelivered: () -> Void = {}
+    /// The files a drag from here carries, with their thumbnails.
+    var dragGroup: () -> [(URL, NSImage)] = { [] }
     var onDiscard: () -> Void = {}
     var onLongPress: () -> Void = {}
     var onPressChange: (Bool) -> Void = { _ in }
@@ -100,7 +112,20 @@ final class GrabView: NSView, NSDraggingSource {
         return corner.contains(p)
     }
 
+    /// The selection circle drawn in the top right corner of the card.
+    private func isInSelectCircle(_ event: NSEvent) -> Bool {
+        let p = convert(event.locationInWindow, from: nil)
+        let corner = NSRect(x: bounds.width - Self.crossHitSize, y: isFlipped ? 0 : bounds.height - Self.crossHitSize,
+                            width: Self.crossHitSize, height: Self.crossHitSize)
+        return corner.contains(p)
+    }
+
     override func mouseDown(with event: NSEvent) {
+        if isInSelectCircle(event) {
+            downPoint = nil
+            onToggleSelect()
+            return
+        }
         if isInCross(event) {
             downPoint = nil
             onDiscard()
@@ -139,9 +164,16 @@ final class GrabView: NSView, NSDraggingSource {
         startedDrag = true
         endPress()
 
-        let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-        item.setDraggingFrame(imageFrame(), contents: dragImage)
-        let session = beginDraggingSession(with: [item], event: event, source: self)
+        var group = dragGroup()
+        if group.isEmpty { group = [(url, dragImage ?? NSImage())] }
+        let items = group.map { url, image in
+            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+            item.setDraggingFrame(imageFrame(for: image), contents: image)
+            return item
+        }
+        let session = beginDraggingSession(with: items, event: event, source: self)
+        // Several photos travel as one pile under the pointer.
+        if items.count > 1 { session.draggingFormation = .pile }
         // Released where nothing accepts it: it flies back to the line.
         session.animatesToStartingPositionsOnCancelOrFail = true
         GrabView.isDragging = true
@@ -173,24 +205,23 @@ final class GrabView: NSView, NSDraggingSource {
         startedDrag = false
         downPoint = nil
         log.notice("Drag ended with operation \(operation.rawValue, privacy: .public)")
-        // Dropped on the Trash: macOS only tells us, we move the file.
-        if operation.contains(.delete) {
-            onDragEnd()
-            onTrash()
-            return
-        }
         onDragEnd()
-        // Finder finishes a move a moment later. Check again then, so a photo
-        // saved into a folder leaves the line.
-        if operation.contains(.move) {
+        // Dropped on the Trash: macOS only tells us, we move the files.
+        if operation.contains(.delete) {
+            onTrash()
+        } else if operation.contains(.move) {
+            // Finder finishes a move a moment later. Check again then, so
+            // photos saved into a folder leave the line.
             let done = onDragEnd
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { done() }
         }
+        // Delivered somewhere: last, since the Trash above still needs the selection.
+        if !operation.isEmpty { onDelivered() }
     }
 
     /// The drag preview keeps the photo's aspect ratio inside the card.
-    private func imageFrame() -> NSRect {
-        guard let size = dragImage?.size, size.width > 0, size.height > 0 else { return bounds }
+    private func imageFrame(for image: NSImage?) -> NSRect {
+        guard let size = image?.size, size.width > 0, size.height > 0 else { return bounds }
         let scale = min(bounds.width / size.width, bounds.height / size.height)
         let w = size.width * scale, h = size.height * scale
         return NSRect(x: (bounds.width - w) / 2, y: (bounds.height - h) / 2, width: w, height: h)

@@ -282,10 +282,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func cardFrame(for id: UUID) -> CGRect? {
         guard let index = line.items.firstIndex(where: { $0.id == id }) else { return nil }
         let width = panel.frame.width
-        let x = Layout.x(index: index, count: line.items.count, width: width)
-        let viewTop = Layout.ropeY(x: x, width: width) - Layout.pinAbove
+        let count = line.items.count
+        let x = Layout.x(index: index, count: count, width: width)
+        let viewTop = Layout.ropeY(x: x, width: width, count: count) - Layout.pinAbove
         let cardTop = viewTop + PeggedView.cardOffsetBelowTop
-        let size = PeggedView.cardSize(for: line.items[index].thumb.size)
+        let size = PeggedView.cardSize(for: line.items[index].thumb.size,
+                                       scale: Layout.scale(count: count, width: width))
         return CGRect(x: panel.frame.minX + x - size.width / 2,
                       y: panel.frame.maxY - cardTop - size.height,
                       width: size.width, height: size.height)
@@ -513,8 +515,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateCapacity() {
-        let usable = panel.frame.width - 200
-        line.maxItems = max(3, min(12, Int(usable / Layout.spacing)))
+        line.maxItems = Layout.capacity(width: panel.frame.width)
     }
 
     // MARK: Menu bar

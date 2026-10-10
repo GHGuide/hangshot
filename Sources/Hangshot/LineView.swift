@@ -6,19 +6,45 @@ enum Layout {
     static let spacing: CGFloat = 174
     static let cardWidth: CGFloat = 150
     static let pinAbove: CGFloat = 9.5
+    /// Card centers stay this far from either edge, which keeps the cards
+    /// clear of the Clear all button.
+    static let margin: CGFloat = 190
+    /// How small a card gets on a crowded line.
+    static let minScale: CGFloat = 0.6
 
-    /// The rope hangs as a parabola from edge to edge of the screen.
-    static func sag(width: CGFloat) -> CGFloat { min(30, width * 0.018) }
+    /// The rope hangs as a parabola from edge to edge of the screen, and
+    /// sags with what it carries: a little for one photo, fully from eight.
+    static func sag(width: CGFloat, count: Int) -> CGFloat {
+        min(30, width * 0.018) * (0.35 + 0.65 * min(1, CGFloat(count) / 8))
+    }
 
-    static func ropeY(x: CGFloat, width: CGFloat) -> CGFloat {
+    static func ropeY(x: CGFloat, width: CGFloat, count: Int) -> CGFloat {
         guard width > 0 else { return ropeTop }
         let f = x / width
-        return ropeTop + 4 * sag(width: width) * f * (1 - f)
+        return ropeTop + 4 * sag(width: width, count: count) * f * (1 - f)
+    }
+
+    /// Room between card centers: the full spacing while the line has it,
+    /// then tighter as more photos crowd on.
+    static func gap(count: Int, width: CGFloat) -> CGFloat {
+        guard count > 1 else { return spacing }
+        return min(spacing, (width - 2 * margin) / CGFloat(count - 1))
+    }
+
+    /// Cards shrink with the gap, so they never overlap.
+    static func scale(count: Int, width: CGFloat) -> CGFloat {
+        max(minScale, min(1, gap(count: count, width: width) / spacing))
+    }
+
+    /// How many photos fit before the oldest falls off: as many as fit at
+    /// the smallest card size.
+    static func capacity(width: CGFloat) -> Int {
+        max(3, Int((width - 2 * margin) / (spacing * minScale)) + 1)
     }
 
     static func x(index: Int, count: Int, width: CGFloat) -> CGFloat {
-        let total = CGFloat(max(count - 1, 0)) * spacing
-        return width / 2 - total / 2 + CGFloat(index) * spacing
+        let g = gap(count: count, width: width)
+        return width / 2 - CGFloat(max(count - 1, 0)) * g / 2 + CGFloat(index) * g
     }
 }
 
@@ -28,12 +54,14 @@ struct LineView: View {
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
+            let count = line.items.count
+            let scale = Layout.scale(count: count, width: width)
             ZStack(alignment: .topLeading) {
-                Rope(width: width)
+                Rope(width: width, sag: Layout.sag(width: width, count: count))
 
                 if line.items.isEmpty {
                     Hint()
-                        .position(x: width / 2, y: Layout.ropeY(x: width / 2, width: width) + 34)
+                        .position(x: width / 2, y: Layout.ropeY(x: width / 2, width: width, count: count) + 34)
                         .transition(.opacity)
                 }
 
@@ -42,14 +70,14 @@ struct LineView: View {
                     // the cards clear of the last 100 points of the screen.
                     let x = width - 64
                     ClearAllButton { line.discardAll() }
-                        .position(x: x, y: Layout.ropeY(x: x, width: width) + 22)
+                        .position(x: x, y: Layout.ropeY(x: x, width: width, count: count) + 22)
                         .transition(.opacity)
                 }
 
                 ForEach(Array(line.items.enumerated()), id: \.element.id) { index, item in
-                    let x = Layout.x(index: index, count: line.items.count, width: width)
-                    let ropeY = Layout.ropeY(x: x, width: width)
-                    PeggedView(item: item, line: line)
+                    let x = Layout.x(index: index, count: count, width: width)
+                    let ropeY = Layout.ropeY(x: x, width: width, count: count)
+                    PeggedView(item: item, line: line, scale: scale)
                         .frame(width: Layout.cardWidth, height: Layout.panelHeight - ropeY, alignment: .top)
                         .position(x: x, y: ropeY - Layout.pinAbove + (Layout.panelHeight - ropeY) / 2)
                 }
@@ -130,23 +158,16 @@ private struct ClickArea: NSViewRepresentable {
 /// both ends so it seems to come from beyond the screen.
 struct Rope: View {
     let width: CGFloat
-
-    private var path: Path {
-        Path { p in
-            let top = Layout.ropeTop
-            p.move(to: CGPoint(x: -20, y: top))
-            p.addQuadCurve(
-                to: CGPoint(x: width + 20, y: top),
-                control: CGPoint(x: width / 2, y: top + 2 * Layout.sag(width: width)))
-        }
-    }
+    let sag: CGFloat
 
     var body: some View {
         ZStack {
-            path.stroke(Color.black.opacity(0.22), lineWidth: 1.4).offset(y: 1.2).blur(radius: 1.2)
-            path.stroke(Color(white: 0.55), lineWidth: 1.2)
-            path.stroke(Color.white.opacity(0.45), lineWidth: 0.4).offset(y: -0.35)
+            RopeShape(sag: sag).stroke(Color.black.opacity(0.22), lineWidth: 1.4).offset(y: 1.2).blur(radius: 1.2)
+            RopeShape(sag: sag).stroke(Color(white: 0.55), lineWidth: 1.2)
+            RopeShape(sag: sag).stroke(Color.white.opacity(0.45), lineWidth: 0.4).offset(y: -0.35)
         }
+        // The rope settles with the cards when photos come and go.
+        .animation(.spring(response: 0.55, dampingFraction: 0.78), value: sag)
         .mask(
             LinearGradient(stops: [
                 .init(color: .clear, location: 0),
@@ -156,6 +177,24 @@ struct Rope: View {
             ], startPoint: .leading, endPoint: .trailing)
         )
         .allowsHitTesting(false)
+    }
+}
+
+/// The rope's curve, animatable so it sinks and lifts smoothly.
+private struct RopeShape: Shape {
+    var sag: CGFloat
+    var animatableData: CGFloat {
+        get { sag }
+        set { sag = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            let top = Layout.ropeTop
+            p.move(to: CGPoint(x: -20, y: top))
+            p.addQuadCurve(to: CGPoint(x: rect.width + 20, y: top),
+                           control: CGPoint(x: rect.width / 2, y: top + 2 * sag))
+        }
     }
 }
 

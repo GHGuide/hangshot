@@ -5,13 +5,20 @@ import SwiftUI
 struct PeggedView: View {
     let item: Pegged
     @ObservedObject var line: Line
+    /// Smaller on a crowded line, see Layout.scale.
+    var scale: CGFloat = 1
 
     @State private var swing: Double = 0
     @State private var arrived = false
     @State private var hovering = false
 
     private var copied: Bool { line.copiedID == item.id }
-    private var dragging: Bool { line.draggingID == item.id }
+    /// Dimmed while it is being dragged, on its own or with the selection.
+    private var dragging: Bool {
+        guard let d = line.draggingID else { return false }
+        return d == item.id || (line.selected.contains(d) && line.selected.contains(item.id))
+    }
+    private var selected: Bool { line.selected.contains(item.id) }
     private var pressed: Bool { line.pressedID == item.id }
 
     var body: some View {
@@ -35,23 +42,23 @@ struct PeggedView: View {
 
     /// The photo fits inside the card area keeping its proportions, so the
     /// white border hugs it whether the screenshot is wide or tall.
-    static func photoSize(for size: CGSize) -> CGSize {
-        let maxW = Layout.cardWidth - 14, maxH: CGFloat = 104
+    static func photoSize(for size: CGSize, scale: CGFloat = 1) -> CGSize {
+        let maxW = (Layout.cardWidth - 14) * scale, maxH = 104 * scale
         guard size.width > 0, size.height > 0 else { return CGSize(width: maxW, height: maxH) }
         let scale = min(maxW / size.width, maxH / size.height)
         return CGSize(width: size.width * scale, height: size.height * scale)
     }
 
     /// The card around the photo: the photo plus the glass inset.
-    static func cardSize(for size: CGSize) -> CGSize {
-        let p = photoSize(for: size)
+    static func cardSize(for size: CGSize, scale: CGFloat = 1) -> CGSize {
+        let p = photoSize(for: size, scale: scale)
         return CGSize(width: p.width + Frame.inset * 2, height: p.height + Frame.inset * 2)
     }
 
     /// Distance from the top of the hanging view (the clip) to the card.
     static let cardOffsetBelowTop: CGFloat = 26 - 12
 
-    private var photoSize: CGSize { Self.photoSize(for: item.thumb.size) }
+    private var photoSize: CGSize { Self.photoSize(for: item.thumb.size, scale: scale) }
 
     private var card: some View {
         Image(nsImage: item.thumb)
@@ -84,6 +91,27 @@ struct PeggedView: View {
                     .opacity(hovering && !dragging ? 1 : 0)
                     .scaleEffect(hovering ? 1 : 0.6)
                     .allowsHitTesting(false)
+            }
+            .overlay(alignment: .topTrailing) {
+                // The selection circle: pick several photos to drag out
+                // together. Drawn here, clicked through GrabView, like the cross.
+                ZStack {
+                    if selected {
+                        Circle().fill(Color.accentColor)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                    } else {
+                        Circle().strokeBorder(Color.primary.opacity(0.55), lineWidth: 1.2)
+                    }
+                }
+                .frame(width: 20, height: 20)
+                .glassFrame(circle: true)
+                .padding(3)
+                .opacity(selected || ((hovering || !line.selected.isEmpty) && !dragging) ? 1 : 0)
+                .scaleEffect(selected || hovering ? 1 : 0.6)
+                .animation(.easeOut(duration: 0.15), value: selected)
+                .allowsHitTesting(false)
             }
             .overlay(GrabArea(item: item, line: line))
             .overlay(alignment: .bottom) {
