@@ -427,7 +427,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let p = NSEvent.mouseLocation
-                guard NSScreen.screens.contains(where: { NSMouseInRect(p, Self.menuBarBand(of: $0), false) }) else { return }
+                // In a full screen app the menu bar is hidden and that strip is the app's own:
+                // a full screen browser keeps its tabs there, and clicking a tab is no menu bar click.
+                guard let screen = NSScreen.screens.first(where: { NSMouseInRect(p, Self.menuBarBand(of: $0), false) }),
+                      !FullScreen.isActive(on: screen) else { return }
                 self.menuBarSuppressed = true
                 self.hotZoneSince = nil
                 if self.isRevealed {
