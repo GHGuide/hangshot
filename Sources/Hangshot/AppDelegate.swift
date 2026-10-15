@@ -313,7 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         isPresent = true
         panel.alphaValue = 1
         // The window itself only comes in while the line is down; see setRevealed.
-        if isRevealed { panel.orderFrontRegardless() }
+        if isRevealed { panel.orderFrontOnEverySpace() }
     }
 
     private func dismiss() {
@@ -342,7 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // over the top of the screen would still sit above other apps for
         // anything that checks what is on top, like screen automation.
         if on {
-            if isPresent { panel.orderFrontRegardless() }
+            if isPresent { panel.orderFrontOnEverySpace() }
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self, !self.isRevealed else { return }
