@@ -13,24 +13,12 @@ final class LinePanel: NSPanel {
         level = .floating
         // Every Space, full screen ones included. Whether the line comes down
         // over a full screen app is a setting, see FullScreen.showLineOver.
-        collectionBehavior = Self.everySpace
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         hidesOnDeactivate = false
         isMovable = false
         becomesKeyOnlyIfNeeded = true
         ignoresMouseEvents = true
         contentView = content
-    }
-
-    private static let everySpace: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-
-    /// Shows the line on whichever desktop you are on. Opened at login on macOS 27, the line can
-    /// come up before the Dock has its desktops ready: macOS then keeps it on the first desktop
-    /// only, though it still reports joining them all. Setting the behavior again from scratch,
-    /// now that the Dock is up, puts it back on every desktop.
-    func orderFrontOnEverySpace() {
-        collectionBehavior = []
-        collectionBehavior = Self.everySpace
-        orderFrontRegardless()
     }
 
     override var canBecomeKey: Bool { false }

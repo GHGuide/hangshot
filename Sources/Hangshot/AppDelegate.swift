@@ -79,6 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
             workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
+                    // Switched desktops with the line down: make sure it came along.
+                    if let self, self.isRevealed, self.isPresent { self.showPanel() }
                     self?.refresh()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self?.refresh() }
                 }
@@ -313,7 +315,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         isPresent = true
         panel.alphaValue = 1
         // The window itself only comes in while the line is down; see setRevealed.
-        if isRevealed { panel.orderFrontOnEverySpace() }
+        if isRevealed { showPanel() }
+    }
+
+    /// Orders the line in on the desktop you are on. On macOS 27 the window can drop off every
+    /// desktop but one while the app runs, though it still asks to join them all, and setting
+    /// its collection behavior again does not bring it back. A new window joins every desktop,
+    /// so when the line finds itself elsewhere it moves into one.
+    private func showPanel() {
+        panel.orderFrontRegardless()
+        guard !panel.isOnActiveSpace, let content = panel.contentView else { return }
+        log.notice("The line's window was left on another desktop; moving the line into a new one")
+        let old: LinePanel = panel
+        old.orderOut(nil)
+        old.contentView = nil
+        let fresh = LinePanel(content: content)
+        fresh.setFrame(old.frame, display: false)
+        fresh.ignoresMouseEvents = old.ignoresMouseEvents
+        panel = fresh
+        fresh.orderFrontRegardless()
     }
 
     private func dismiss() {
@@ -342,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // over the top of the screen would still sit above other apps for
         // anything that checks what is on top, like screen automation.
         if on {
-            if isPresent { panel.orderFrontOnEverySpace() }
+            if isPresent { showPanel() }
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self, !self.isRevealed else { return }
